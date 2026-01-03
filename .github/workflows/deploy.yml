@@ -12,12 +12,12 @@ jobs:
     - name: Replace API Keys
       env:
         GOOGLE: ${{ secrets.GOOGLE_MAPS_KEY }}
-        KAKAO: ${{ secrets.KAKAO_MAPS_KEY }}
-        NAVER: ${{ secrets.NAVER_MAPS_KEY }}
+        # KAKAO: ${{ secrets.KAKAO_MAPS_KEY }}
+        # NAVER: ${{ secrets.NAVER_MAPS_KEY }}
       run: |
         sed -i "s|GOOGLE_KEY_PLACEHOLDER|$GOOGLE|g" index.html
-        sed -i "s|KAKAO_KEY_PLACEHOLDER|$KAKAO|g" index.html
-        sed -i "s|NAVER_KEY_PLACEHOLDER|$NAVER|g" index.html
+        # sed -i "s|KAKAO_KEY_PLACEHOLDER|$KAKAO|g" index.html
+        # sed -i "s|NAVER_KEY_PLACEHOLDER|$NAVER|g" index.html
         cat index.html  # 치환 확인용 로그
     - uses: peaceiris/actions-gh-pages@v4
       with:
