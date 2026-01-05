@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main  # 또는 master, 사용하는 브랜치에 맞게 수정
+      - main  # 또는 배포용 브랜치명
 
 permissions:
   contents: write
@@ -23,13 +23,13 @@ jobs:
           sed -i "s/YOUR_API_KEY/${{ secrets.GOOGLE_MAPS_API_KEY }}/g" index.html
           echo "✅ API key injected successfully."
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
+      - name: Configure Pages
+        uses: actions/configure-pages@v4
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: . # 루트 디렉터리 전체 업로드
+          path: .
 
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
