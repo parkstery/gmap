@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Global GIS - Fitness Pro Simulator V5 (English Mode)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* [폰트 설정] 모든 글자 크기 13px 통일 */
+    html, body, input, select, button, h3, h4, div, span, ul, li { 
+      margin: 0; padding: 0; font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; 
+      font-size: 13px !important; 
+    }
+    /*이것은...  */
+    html, body { height: 100%; width: 100%; overflow: hidden; }
+    #main-wrapper { display: flex; flex-direction: column; height: 100%; width: 100%; position: relative; }
+    #container { display: flex; flex: 1; min-height: 0; position: relative; z-index: 1; }
+    #map { flex: 1; position: relative; z-index: 1; transition: flex 0.3s ease; }
+    #street { flex: 0; border-left: 2px solid #ccc; position: relative; display: none; z-index: 5; transition: flex 0.3s ease; }
+    
+    /* 고도 그래프 Floating 레이아웃 (높이 50% 축소 적용) */
+    #chart-area { 
+      position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+      height: 0; width: 50%; background: rgba(255, 255, 255, 0.93); 
+      border: 2px solid #ddd; border-bottom: none; border-radius: 12px 12px 0 0;
+      transition: height 0.3s ease; overflow: hidden; z-index: 1100;
+    }
+    /* [수정] 높이 180px -> 90px (50% 축소) */
+    /* [수정] 높이 180px -> 90px (50% 축소) */
+    #chart-area.active { height: 150px; padding: 5px 20px; }
+    
+    /* [신규] 그래프 Close 버튼 스타일 */
+    .close-chart {
+      position: absolute; top: 2px; right: 8px; cursor: pointer;
+      color: #999; font-size: 16px !important; font-weight: bold; z-index: 1101;
+    }
+    .close-chart:hover { color: #ff4d4d; }
+    
+    /* 패널 폭 250px 최적화 */
+    #left-panel { 
+      position: absolute; top: 90px; left: 10px; z-index: 100; 
+      background: white; padding: 12px; border-radius: 8px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25); width: 250px; 
+      max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; 
+    }
+    .panel-section { border-bottom: 1px solid #eee; padding-bottom: 4px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    h3, h4 { color: #2c3e50; font-weight: 700; }
+    
+    .input-group { display: flex; gap: 4px; margin-bottom: 6px; }
+    input[type="text"], select { width: 100%; box-sizing: border-box; padding: 7px; border: 1px solid #ddd; border-radius: 4px; }
+    
+    button { cursor: pointer; border: none; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+    
+    /* 네비게이션 버튼 레이아웃 */
+    .btn-row { display: flex; gap: 4px; margin-top: 4px; }
+    .action-btn { flex: 1.2; background: #4285F4; color: white; padding: 3px; }
+    .delete-btn { flex: 0.8; background: #ea4335; color: white; padding: 3px; }
+    .hist-btn { flex: 0.8; background: #6c757d; color: white; padding: 3px; }
+    
+    .go-btn { width: 40px; background: #34a853; color: white; }
+    .fav-save-btn { width: 35px; background: #ffc107; color: #333; }
+    .fav-toggle-btn { background: #f1f3f4; color: #555; padding: 3px 6px; border: 1px solid #ccc; }
+
+    /* 팝업 디자인 */
+    #fav-popup, #hist-popup { 
+      position: absolute; top: 90px; left: 275px; z-index: 200; 
+      background: white; width: 300px; padding: 10px; border-radius: 8px; 
+      box-shadow: 4px 4px 15px rgba(0,0,0,0.2); display: none; 
+    }
+    .pop-item { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pop-item:hover { background: #e8f0fe; }
+
+    /* 피트니스 및 지표 바 */
+    #fitness-guide { margin-top: 6px; background: #f0f7ff; border: 1px solid #4285F4; border-radius: 6px; padding: 10px; text-align: center; display: none; }
+    .gear-info { font-size: 24px !important; font-weight: 800; color: #4285F4; margin: 4px 0; }
+    .gear-msg { font-weight: bold; color: #333; line-height: 1.4; }
+    
+    #coords-floating-bar { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); background: rgba(30, 30, 30, 0.9); color: #00ff00; padding: 8px 15px; border-radius: 30px; z-index: 2000; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; font-family: 'Consolas', monospace; border: 1px solid #444; transition: bottom 0.3s ease; }
+    /* [수정] 그래프 높이 축소에 따른 지표 바 위치 조정 */
+    #chart-area.active ~ #coords-floating-bar { bottom: 110px; }
+    
+    .pop-3d-box { background: #222; color: #00ff00; padding: 6px; border-radius: 4px; font-family: 'Consolas', monospace; margin-bottom: 5px; border: 1px solid #444; line-height: 1.4; }
+    .context-menu-btn { cursor: pointer; padding: 6px; background: #fff; border: 1px solid #4285F4; color: #4285F4; border-radius: 4px; margin-bottom: 3px; width: 100%; text-align: center; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<div id="main-wrapper">
+  <div id="container">
+    <div id="left-panel">
+      <div class="panel-section">
+        <div class="section-header">
+          <h3>📍 Search Place</h3>
+          <button class="fav-toggle-btn" onclick="togglePopup('fav-popup')">Favorites ▼</button>
+        </div>
+        <div class="input-group">
+          <input id="searchInput" type="text" placeholder="Search address..." onclick="autoPaste(this)" onfocus="setFocusId('searchInput')" />
+          <button class="go-btn" onclick="goToSearch()">Go</button>
+          <button class="fav-save-btn" onclick="saveToFavorites('searchInput')">⭐</button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3>🧭 Navigation</h3>
+        <select id="travelMode" style="margin-bottom:6px;">
+          <option value="DRIVING">🚗 Driving</option>
+          <option value="WALKING">🚶 Walking</option>
+          <option value="BICYCLING" selected>🚲 Bicycling</option>
+        </select>
+        <input id="originInput" type="text" placeholder="Start" onclick="autoPaste(this)" onfocus="setFocusId('originInput')" style="margin-bottom:6px;"/>
+        <input id="destInput" type="text" placeholder="Destination" onclick="autoPaste(this)" onfocus="setFocusId('destInput')" />
+        
+        <div class="btn-row">
+          <button class="action-btn" onclick="handleRouteAction()">Get Directions</button>
+          <button class="delete-btn" onclick="clearRouteFields()">Delete</button>
+          <button class="hist-btn" onclick="togglePopup('hist-popup')">History ▶</button>
+        </div>
+        <div id="elevation-status" style="margin-top:4px; font-weight:bold;"></div>
+      </div>
+
+      <div class="panel-section" id="sim-section" style="display: none;">
+        <h4>🚗 Fitness Simulation</h4>
+        <select id="speed-select" style="margin-bottom:6px; margin-top:6px;">
+          <option value="1800">10 km/h</option>
+          <option value="900">20 km/h</option>
+          <option value="600">30 km/h</option>
+          <option value="450">40 km/h</option>
+          <option value="360" selected>50 km/h</option>
+          <option value="300">60 km/h</option>
+          <option value="257">70 km/h</option>
+          <option value="225">80 km/h</option>
+          <option value="200">90 km/h</option>
+          <option value="180">100 km/h</option>
+          <option value="164">110 km/h</option>
+          <option value="150">120 km/h</option>
+        </select>
+        <div style="display:flex; gap:4px;">
+          <button id="btn-play" class="action-btn" onclick="toggleSimulation()">▶ Start</button>
+          <button id="btn-stop" class="action-btn" style="background:#6c757d;" onclick="stopSimulation()">■ Stop</button>
+        </div>
+        <div id="fitness-guide">
+          <div style="color:#666;">Resistance Guide</div>
+          <div class="gear-info" id="current-gear">GEAR 1</div>
+          <div class="gear-msg" id="gear-message">Ready to ride</div>
+          <div style="margin-top:5px;">Dist: <span id="curr-dist">0.00</span> / <span id="total-dist">0.00</span> km</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 즐겨찾기 팝업 -->
+    <div id="fav-popup">
+      <div style="font-weight:bold; margin-bottom:8px; color:#d4a017; display:flex; justify-content:space-between;">
+        ⭐ Favorites <span onclick="togglePopup('fav-popup')" style="cursor:pointer;color:#999;">×</span>
+      </div>
+      <div id="fav-list-container"></div>
+    </div>
+
+    <!-- 히스토리 팝업 -->
+    <div id="hist-popup">
+      <div style="font-weight:bold; margin-bottom:8px; color:#4285F4; display:flex; justify-content:space-between;">
+        🕒 History <span onclick="togglePopup('hist-popup')" style="cursor:pointer;color:#999;">×</span>
+      </div>
+      <div id="history-list-container"></div>
+      <div style="text-align:right; margin-top:8px;">
+        <span style="color:#999;cursor:pointer;" onclick="clearHistory()">Clear All</span>
+      </div>
+    </div>
+    
+    <div id="map"></div>
+    <div id="street"><button style="position:absolute; top:10px; right:10px; z-index:30;" onclick="closeStreetView()">✖ Close</button></div>
+    
+    <div id="coords-floating-bar">
+      <span>X: <span id="coord-x">0.000000</span></span>
+      <span>Y: <span id="coord-y">0.000000</span></span>
+      <span>Z: <span id="coord-z">---</span>m</span>
+      <span style="color:#ff4d4d; cursor:pointer; font-weight:bold; margin-left:10px;" onclick="this.parentElement.style.display='none'">×</span>
+    </div>
+  </div>
+  <!-- 고도 그래프 영역 (Close 버튼 추가됨) -->
+  <div id="chart-area">
+    <span class="close-chart" onclick="closeElevationChart()">×</span>
+    <canvas id="elevationChart"></canvas>
+  </div>
+</div>
+
+<script>
+let map, panorama, infoWindow, directionsService, directionsRenderer, elevationService, geocoder;
+let currentRouteData = null, currentElevationData = null, elevationChart = null;
+let lastFocusedInputId = 'searchInput', simulationPath = [], simIndex = 0, isSimulating = false, simTimer = null, simMarker = null;
+let totalPathDistance = 0, lastCopiedValue = "", lastAnnouncedGear = 0;
+
+async function initMap() {
+  const { Map } = await google.maps.importLibrary("maps");
+  const { DirectionsService, DirectionsRenderer } = await google.maps.importLibrary("routes");
+  const { ElevationService } = await google.maps.importLibrary("elevation");
+  const { Geocoder } = await google.maps.importLibrary("geocoding");
+
+  map = new Map(document.getElementById("map"), {
+    center: { lat: 37.5665, lng: 126.9780 }, zoom: 17,
+    mapId: "ef6d149e63d71cf93952c9bb", tilt: 45, mapTypeId: 'satellite'
+  });
+
+  panorama = new google.maps.StreetViewPanorama(document.getElementById("street"), { visible: false, enableCloseButton: false });
+  map.setStreetView(panorama);
+
+  panorama.addListener("visible_changed", () => {
+    const isVisible = panorama.getVisible();
+    const s = document.getElementById("street"), m = document.getElementById("map");
+    if (isVisible) { s.style.display = "block"; s.style.flex = "1"; m.style.flex = "1"; }
+    else { s.style.display = "none"; s.style.flex = "0"; m.style.flex = "1"; stopSimulation(); }
+    setTimeout(() => google.maps.event.trigger(map, "resize"), 300);
+  });
+
+  infoWindow = new google.maps.InfoWindow();
+  geocoder = new Geocoder();
+  elevationService = new ElevationService();
+
+  map.addListener("mousemove", (e) => {
+    document.getElementById("coord-x").innerText = e.latLng.lng().toFixed(6);
+    document.getElementById("coord-y").innerText = e.latLng.lat().toFixed(6);
+  });
+
+  map.addListener("contextmenu", (e) => {
+    const latLng = e.latLng;
+    elevationService.getElevationForLocations({ locations: [latLng] }, (results, status) => {
+      let zVal = (status === "OK" && results[0]) ? results[0].elevation.toFixed(1) : "---";
+      geocoder.geocode({ location: latLng }, (geoResults, geoStatus) => {
+        const addr = (geoStatus === "OK" && geoResults[0]) ? geoResults[0].formatted_address : "Unknown";
+        const xVal = latLng.lng().toFixed(6), yVal = latLng.lat().toFixed(6);
+        infoWindow.setContent(`
+          <div style="padding: 0; margin: -5px 0 0 0; min-width: 180px; line-height: 1.2;">
+            <div style="font-weight: bold; color: #4285F4; margin-bottom: 5px;">🎯 Point Data</div>
+            <div style="color: #555; margin-bottom: 7px;">${addr}</div>
+            <div class="pop-3d-box">X: ${xVal}<br>Y: ${yVal}<br>Z: ${zVal}m</div>
+            <button class="context-menu-btn" onclick="copyValue('${addr.replace(/'/g, "\\'")}')">📄 주소 복사</button>
+            <button class="context-menu-btn" onclick="copyValue('X: ${xVal}, Y: ${yVal}, Z: ${zVal}m')">🌐 3차원 좌표 복사</button>
+          </div>
+          
+        `);
+
+        infoWindow.setPosition(latLng);
+        infoWindow.open(map);
+      });
+    });
+  });
+
+  directionsService = new DirectionsService();
+  directionsRenderer = new DirectionsRenderer({ map: map });
+  renderHistory(); renderFavorites();
+  setupAutocomplete("searchInput", "place");
+  setupAutocomplete("originInput", "route");
+  setupAutocomplete("destInput", "route");
+}
+
+function speakFitnessMsg(msg) {
+  speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(msg);
+  utterance.lang = 'en-US';
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
+  const voices = speechSynthesis.getVoices();
+  const nativeVoice = voices.find(v => (v.name.includes('Google') || v.name.includes('Premium') || v.name.includes('Natural')) && v.lang.startsWith('en')) || 
+                      voices.find(v => v.lang.startsWith('en'));
+  if (nativeVoice) utterance.voice = nativeVoice;
+  speechSynthesis.speak(utterance);
+}
+
+function updateFitnessGuide(progress) {
+  if (!currentElevationData) return;
+  const sampleCount = currentElevationData.length;
+  const currentIndex = Math.min(Math.round(progress * (sampleCount - 1)), sampleCount - 1);
+  const offset = Math.max(1, Math.round(50 / (totalPathDistance / sampleCount)));
+  let nextSum = 0, nextCnt = 0;
+  for (let i = currentIndex; i <= Math.min(sampleCount - 1, currentIndex + offset); i++) {
+    nextSum += currentElevationData[i].elevation; nextCnt++;
+  }
+  const slopePct = ((nextSum / nextCnt - currentElevationData[currentIndex].elevation) / 50) * 100;
+  let gear = 1, msg = "";
+  if (slopePct <= 0) { gear = 1; msg = "Downhill or flat section. Keep it steady."; } 
+  else if (slopePct <= 1.5) { gear = 2; msg = "Gentle uphill. Shift to gear second."; } 
+  else if (slopePct <= 4.5) { gear = 4; msg = "Moderate uphill. Shift to gear fourth."; } 
+  else if (slopePct <= 8.0) { gear = 6; msg = "Steeper uphill. Shift to gear sixth."; } 
+  else { gear = 8; msg = "Tough climb before the summit. Maximum gear eighth!"; }
+  document.getElementById("current-gear").innerText = `GEAR ${gear}`;
+  document.getElementById("gear-message").innerText = msg;
+  if (lastAnnouncedGear !== gear) {
+    speakFitnessMsg(msg);
+    lastAnnouncedGear = gear;
+  }
+}
+
+function togglePopup(id) {
+  const pop = document.getElementById(id);
+  const isVisible = pop.style.display === "block";
+  document.getElementById('fav-popup').style.display = 'none';
+  document.getElementById('hist-popup').style.display = 'none';
+  pop.style.display = isVisible ? "none" : "block";
+}
+
+function runSimStep() {
+  if (!isSimulating || simIndex >= simulationPath.length) { if (simIndex >= simulationPath.length) stopSimulation(); return; }
+  const curr = simulationPath[simIndex], next = simulationPath[simIndex + 1] || curr;
+  const heading = google.maps.geometry.spherical.computeHeading(curr, next);
+  panorama.setPosition(curr);
+  panorama.setPov({ heading, pitch: 0 });
+  if (!simMarker) simMarker = new google.maps.Marker({ map, icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 5, fillColor: "#4285F4", fillOpacity: 1, rotation: 0 } });
+  simMarker.setPosition(curr); simMarker.setOptions({ rotation: heading });
+  map.setCenter(curr);
+  const progress = simIndex / (simulationPath.length - 1);
+  document.getElementById("curr-dist").innerText = (totalPathDistance * progress / 1000).toFixed(2);
+  updateFitnessGuide(progress);
+  if (elevationChart) {
+    const idx = Math.min(Math.round(progress * 99), 99);
+    elevationChart.data.datasets[1].data = Array(100).fill(null);
+    elevationChart.data.datasets[1].data[idx] = currentElevationData[idx].elevation;
+    elevationChart.update('none');
+  }
+  simIndex++;
+  simTimer = setTimeout(runSimStep, parseInt(document.getElementById("speed-select").value));
+}
+
+function toggleSimulation() {
+  if (isSimulating) { isSimulating = false; clearTimeout(simTimer); document.getElementById("btn-play").innerText = "▶ Start"; }
+  else { 
+    isSimulating = true; panorama.setVisible(true); document.getElementById("fitness-guide").style.display = "block"; document.getElementById("btn-play").innerText = "⏸ Pause"; 
+    document.getElementById('fav-popup').style.display = 'none'; document.getElementById('hist-popup').style.display = 'none';
+    runSimStep(); 
+  }
+}
+
+// [수정] Stop 클릭 시 고도 그래프 자동 close 로직 추가
+function stopSimulation() { 
+  isSimulating = false; 
+  clearTimeout(simTimer); 
+  simIndex = 0; 
+  if (simMarker) simMarker.setMap(null); 
+  simMarker = null; 
+  document.getElementById("btn-play").innerText = "▶ Start"; 
+  document.getElementById("fitness-guide").style.display = "none";
+  closeElevationChart(); // 고도 그래프 자동 닫기
+}
+
+// [신규] 고도 그래프 닫기 함수
+function closeElevationChart() {
+  document.getElementById("chart-area").classList.remove("active");
+}
+
+function closeStreetView() { panorama.setVisible(false); }
+function goToSearch() { geocoder.geocode({ address: document.getElementById("searchInput").value }, (r, s) => { if (s === "OK") map.setCenter(r[0].geometry.location); }); }
+function setFocusId(id) { lastFocusedInputId = id; }
+function clearRouteFields() { document.getElementById("originInput").value = ""; document.getElementById("destInput").value = ""; }
+function copyValue(t) { navigator.clipboard.writeText(t).then(() => { lastCopiedValue = t; }); }
+function autoPaste(i) { if (lastCopiedValue) i.value = lastCopiedValue; }
+
+function handleRouteAction() {
+  const o = document.getElementById("originInput").value, d = document.getElementById("destInput").value;
+  if (!o || !d) return;
+  addToHistory('route', { origin: o, dest: d });
+  calculateRoute(o, d);
+}
+function calculateRoute(origin, destination) {
+  const mode = document.getElementById("travelMode").value;
+  directionsService.route({ origin, destination, travelMode: google.maps.TravelMode[mode] }, (response, status) => {
+    if (status === "OK") {
+      directionsRenderer.setDirections(response); currentRouteData = response;
+      document.getElementById("sim-section").style.display = "block";
+      prepareSimulationPath(response.routes[0].overview_path);
+      requestElevation(response.routes[0].overview_path);
+    }
+  });
+}
+function prepareSimulationPath(path) {
+  simulationPath = []; totalPathDistance = google.maps.geometry.spherical.computeLength(path);
+  for (let i = 0; i < path.length - 1; i++) {
+    const curr = path[i], next = path[i + 1], dist = google.maps.geometry.spherical.computeDistanceBetween(curr, next);
+    const steps = Math.max(1, Math.floor(dist / 5)); 
+    for (let j = 0; j < steps; j++) simulationPath.push(google.maps.geometry.spherical.interpolate(curr, next, j / steps));
+  }
+  simulationPath.push(path[path.length - 1]);
+  document.getElementById("total-dist").innerText = (totalPathDistance / 1000).toFixed(2);
+  simIndex = 0;
+}
+function requestElevation(path) {
+  elevationService.getElevationAlongPath({ path, samples: 100 }).then((res) => {
+    currentElevationData = res.results; renderElevationChart(res.results);
+  });
+}
+function renderElevationChart(results) {
+  document.getElementById("chart-area").classList.add("active");
+  if (elevationChart) elevationChart.destroy();
+  const ctx = document.getElementById('elevationChart').getContext('2d');
+  elevationChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: results.map((_, i) => i),
+      datasets: [{ label: 'Elev', data: results.map(r => r.elevation.toFixed(1)), borderColor: '#4285F4', fill: true, backgroundColor: 'rgba(66,133,244,0.1)', tension: 0.3, pointRadius: 0 },
+                 { label: 'Pos', data: Array(100).fill(null), borderColor: 'red', backgroundColor: 'red', pointRadius: 5, showLine: false }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+function saveToFavorites(id) {
+  const v = document.getElementById(id).value; if (!v) return;
+  let f = JSON.parse(localStorage.getItem("gisFavorites")) || [];
+  f = f.filter(x => x !== v); f.unshift(v);
+  localStorage.setItem("gisFavorites", JSON.stringify(f.slice(0, 6))); renderFavorites();
+}
+function renderFavorites() {
+  const f = JSON.parse(localStorage.getItem("gisFavorites")) || [];
+  const c = document.getElementById("fav-list-container"); c.innerHTML = f.length ? "" : "비어 있음";
+  f.forEach(x => { const d = document.createElement("div"); d.className = "pop-item"; d.innerText = x; d.onclick = () => { document.getElementById("searchInput").value = x; goToSearch(); copyValue(x); togglePopup('fav-popup'); }; c.appendChild(d); });
+}
+
+function renderHistory() {
+  const h = JSON.parse(localStorage.getItem("gisHistoryV3")) || [];
+  const c = document.getElementById("history-list-container"); c.innerHTML = "";
+  h.slice(0, 6).forEach(x => {
+    const div = document.createElement("div"); div.className = "pop-item";
+    div.innerHTML = `<span style="font-weight:bold;color:${x.type==='place'?'#ea4335':'#4285F4'};">${x.type.toUpperCase()}</span> ${x.type==='place'?x.val:x.origin.split(',')[0]+'→'}`;
+    div.onclick = () => { 
+      if(x.type==='place'){ document.getElementById(lastFocusedInputId).value=x.val; copyValue(x.val); } 
+      else { document.getElementById("originInput").value=x.origin; document.getElementById("destInput").value=x.dest; }
+      togglePopup('hist-popup');
+    };
+    c.appendChild(div);
+  });
+}
+function addToHistory(t, d) {
+  let h = JSON.parse(localStorage.getItem("gisHistoryV3")) || [];
+  h = h.filter(x => !(t === 'place' ? x.val === d : x.origin === d.origin));
+  h.unshift(t === 'place' ? { type: t, val: d } : { type: t, ...d });
+  localStorage.setItem("gisHistoryV3", JSON.stringify(h.slice(0, 6))); renderHistory();
+}
+function clearHistory() { if(confirm("Clear all history?")) { localStorage.removeItem("gisHistoryV3"); renderHistory(); } }
+function setupAutocomplete(id, type) {
+  const input = document.getElementById(id);
+  const auto = new google.maps.places.Autocomplete(input);
+  auto.addListener("place_changed", () => {
+    const place = auto.getPlace();
+    if (place.geometry && type === "place") { addToHistory('place', input.value); map.setCenter(place.geometry.location); }
+  });
+}
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBYXu5yKdW71VuKmI-N2M2xbvMaYTK2HCg&libraries=places,geometry,routes,elevation,geocoding&callback=initMap" async defer></script>
+</body>
+</html>
+<!-- 이것은 새로운 시작 -->
