@@ -1,25 +1,50 @@
 name: Deploy to GitHub Pages
+
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
 permissions:
   contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Replace API Keys
-      env:
-        GOOGLE: ${{ secrets.GOOGLE_MAPS_KEY }}
-        KAKAO: ${{ secrets.KAKAO_MAPS_KEY }}
-        NAVER: ${{ secrets.NAVER_MAPS_KEY }}
-      run: |
-        sed -i "s|GOOGLE_KEY_PLACEHOLDER|$GOOGLE|g" index.html
-        sed -i "s|KAKAO_KEY_PLACEHOLDER|$KAKAO|g" index.html
-        sed -i "s|NAVER_KEY_PLACEHOLDER|$NAVER|g" index.html
-        cat index.html  # 치환 확인용 로그
-    - uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./gmap
+      # 1. 소스 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. API Key 치환 (실패 시 중단)
+      - name: Inject API keys into index.html
+        env:
+          GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
+          KAKAO_MAPS_KEY:  ${{ secrets.KAKAO_MAPS_KEY }}
+          NAVER_MAPS_KEY:  ${{ secrets.NAVER_MAPS_KEY }}
+        run: |
+          set -e
+
+          echo "▶ Replacing API keys..."
+
+          sed -i "s|GOOGLE_KEY_PLACEHOLDER|${GOOGLE_MAPS_KEY}|g" index.html
+          sed -i "s|KAKAO_KEY_PLACEHOLDER|${KAKAO_MAPS_KEY}|g" index.html
+          sed -i "s|NAVER_KEY_PLACEHOLDER|${NAVER_MAPS_KEY}|g" index.html
+
+          echo "▶ Verifying replacement..."
+          if grep -q "GOOGLE_KEY_PLACEHOLDER" index.html; then
+            echo "❌ Google key replacement failed"
+            exit 1
+          fi
+
+          echo "▶ Key injection successful (masked preview):"
+          grep "maps.googleapis.com/maps/api/js" index.html | sed 's/key=[^&"]*/key=****/g'
+
+      # 3. GitHub Pages 배포
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          force_orphan: true
