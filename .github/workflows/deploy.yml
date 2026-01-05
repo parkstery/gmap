@@ -1,21 +1,30 @@
 name: Deploy to GitHub Pages
+
 on:
   push:
     branches: [ main ]
+
 permissions:
   contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Replace API Keys
-      env:
-        GOOGLE: ${{ secrets.GOOGLE_MAPS_KEY }}
-      run: |
-        sed -i "s|GOOGLE_KEY_PLACEHOLDER|$GOOGLE|g" index.html
-        cat index.html  # 치환 확인용 로그
-    - uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Replace API Keys
+        env:
+          GOOGLE: ${{ secrets.GOOGLE_MAPS_KEY }}
+        run: |
+          # GOOGLE_KEY_PLACEHOLDER → 실제 키로 치환
+          sed -i 's|GOOGLE_KEY_PLACEHOLDER|'"$GOOGLE"'|g' index.html
+          cat index.html  # 치환 확인용 로그
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
